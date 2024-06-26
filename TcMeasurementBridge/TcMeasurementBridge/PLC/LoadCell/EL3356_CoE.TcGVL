@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <GVL Name="EL3356_CoE" Id="{942ffdae-e871-0daa-1f00-bf0d34084caf}" ParameterList="True">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+    parameterReset : DWORD := 16#64616F6C;
+    parameterResetIndex : ProcessDataObjectIndex := (index:=16#1011, subIndex:=1);
+    rmbRatedOutput : ProcessDataObjectIndex := (index:=16#8000, subIndex:=16#23);
+    rmbNominalLoad : ProcessDataObjectIndex := (index:=16#8000, subIndex:=16#24);
+    rmbNominalOffset : ProcessDataObjectIndex := (index:=16#8000, subIndex:=16#25);
+    rmbScaling : ProcessDataObjectIndex := (index:=16#8000, subIndex:=16#27);
+    {attribute 'analysis' := '-33'} // parameter is used, but not seen by the compiler
+    sauter300Settings : ResistorMeasurementBridgeSettings := (
+        nominalLoad:=300,
+        nominalOffset:=0,
+        ratedOutput:=2,
+        scaleFactor:=1000
+    );
+END_VAR
+]]></Declaration>
+  </GVL>
+</TcPlcObject>

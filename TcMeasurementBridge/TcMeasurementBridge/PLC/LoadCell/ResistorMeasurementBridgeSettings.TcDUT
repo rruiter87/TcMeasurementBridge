@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ResistorMeasurementBridgeSettings" Id="{74d88b58-34dc-07df-0067-57737d5cd16e}">
+    <Declaration><![CDATA[TYPE ResistorMeasurementBridgeSettings : STRUCT
+    ratedOutput : REAL; // Nominal characteristic value of the sensor element in mV/V
+    nominalLoad : REAL; // Nominal load of the force transducer/load cell/etc. (e.g. in kg, N etc,)
+    nominalOffset : REAL; // Zero point offset in mV/V
+    scaleFactor : REAL; // This factor can be used to re-scale the process data. In order to change the display from kg to g, for example, the factor 1000 can be entered here.
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

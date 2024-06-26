@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="LoadCell" Id="{ce528db9-ab2c-04f8-2416-65b5d130d2a0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK LoadCell
+VAR_INPUT
+    inLoad AT %I* : DINT; // gram
+END_VAR
+VAR
+    _amsAddress : AmsNetAddress;
+    _settings : ResistorMeasurementBridgeSettings;
+
+    _parameterizeSteps : LoadCellParameterizationSteps;
+    _initialized : BOOL;
+    {attribute 'analysis' := '-33'} // parameter is used, but not seen by the compiler
+    _emptyAddress : AmsNetAddress;
+    _coeWrite : CoeWriterEx(amsNetAddress:=_emptyAddress);
+    _load : Kilogram;
+
+    _logger : TcLog;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Needs to be tested again, has been rewritten
+IF NOT _initialized THEN
+    Initialize();
+ELSE
+    _load := TO_LREAL(inLoad) / _settings.scaleFactor;
+END_IF
+]]></ST>
+    </Implementation>
+    <Method Name="FB_init" Id="{187e284e-0c7d-0c6b-0b7c-05348efdc94a}">
+      <Declaration><![CDATA[{attribute 'hide'}
+METHOD FB_init : BOOL
+VAR_INPUT
+    bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
+    bInCopyCode :
+        BOOL; // if TRUE, the instance afterwards gets moved into the copy code (online change)
+    amsAddress : AmsNetAddress;
+    settings : ResistorMeasurementBridgeSettings;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^._amsAddress := amsAddress;
+THIS^._settings := settings;
+_coeWrite.FB_init(bInitRetains:=bInitRetains, bInCopyCode:=bInCopyCode, amsNetAddress:=amsAddress);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Initialize" Id="{d2bacf3d-2f6e-0ea4-3c9c-31e9b6b3e274}">
+      <Declaration><![CDATA[METHOD PRIVATE Initialize
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF NOT _coeWrite.bBusy THEN
+    _coeWrite(bExecute:=FALSE);
+END_IF
+
+_logger.OnCondition(NOT _coeWrite.bBusy)
+    .AppendString('Load cell reset at AMSID: ')
+    .AppendAny(_coeWrite._amsNetAddress.netId)
+    .AppendString(':')
+    .AppendAny(_coeWrite._amsNetAddress.port).Debug('');
+_logger.OnCondition(_coeWrite.bError)
+    .AppendString('Failed to reset load cell reset to factory settings. Error:')
+    .AppendAny(_coeWrite.eAdsError)
+    .AppendString(': ')
+    .AppendString(AdsErrorCodeDescription(_coeWrite.eAdsError)).Error('');
+
+CASE _parameterizeSteps OF
+    LoadCellParameterizationSteps.resetToFactorySettings:
+        _coeWrite(
+            index:=EL3356_CoE.parameterResetIndex,
+            pSrcBuf:=ADR(EL3356_CoE.parameterReset),
+            cbBufLen:=SIZEOF(EL3356_CoE.parameterReset),
+            bExecute:=TRUE,
+        );
+        IF NOT _coeWrite.bBusy AND NOT _coeWrite.bError THEN
+            _parameterizeSteps := LoadCellParameterizationSteps.setRatedOutput;
+        END_IF
+    LoadCellParameterizationSteps.setRatedOutput:
+        _coeWrite(
+            index:=EL3356_CoE.rmbRatedOutput,
+            pSrcBuf:=ADR(_settings.ratedOutput),
+            cbBufLen:=SIZEOF(_settings.ratedOutput),
+            bExecute:=TRUE,
+        );
+        IF NOT _coeWrite.bBusy THEN
+            _parameterizeSteps := LoadCellParameterizationSteps.setNominalLoad;
+        END_IF
+    LoadCellParameterizationSteps.setNominalLoad:
+        _coeWrite(
+            index:=EL3356_CoE.rmbNominalLoad,
+            pSrcBuf:=ADR(_settings.nominalLoad),
+            cbBufLen:=SIZEOF(_settings.nominalLoad),
+            bExecute:=TRUE,
+        );
+        IF NOT _coeWrite.bBusy THEN
+            _parameterizeSteps := LoadCellParameterizationSteps.setNominalOffset;
+        END_IF
+    LoadCellParameterizationSteps.setNominalOffset:
+        _coeWrite(
+            index:=EL3356_CoE.rmbNominalOffset,
+            pSrcBuf:=ADR(_settings.nominalOffset),
+            cbBufLen:=SIZEOF(_settings.nominalOffset),
+            bExecute:=TRUE,
+        );
+        IF NOT _coeWrite.bBusy THEN
+            _parameterizeSteps := LoadCellParameterizationSteps.setScalingFactor;
+        END_IF
+    LoadCellParameterizationSteps.setScalingFactor:
+        _coeWrite(
+            index:=EL3356_CoE.rmbScaling,
+            pSrcBuf:=ADR(_settings.scaleFactor),
+            cbBufLen:=SIZEOF(_settings.scaleFactor),
+            bExecute:=TRUE,
+        );
+        IF NOT _coeWrite.bBusy THEN
+            _parameterizeSteps := LoadCellParameterizationSteps.Done;
+        END_IF
+    LoadCellParameterizationSteps.Done:
+        _initialized := TRUE;
+END_CASE
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
